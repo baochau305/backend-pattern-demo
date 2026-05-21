@@ -8,5 +8,8 @@ export class OrderItem {
   // Use a structural type to avoid runtime metadata referencing Order before init.
   @ManyToOne(() => Order, (o) => o.items) order!: { id: string };
   @ManyToOne(() => Product) product!: Product; // Relation kept for eager access
-  @Column() quantity!: number;
+  @Column({
+    type: 'int',
+  })
+  quantity!: number;
 }
