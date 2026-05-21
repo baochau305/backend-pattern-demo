@@ -1,0 +1,52 @@
+{
+  "name": "backend-pattern-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "lint": "eslint .",
+    "format": "prettier -w .",
+    "test": "jest --runInBand",
+    "migration:run": "ts-node-dev --transpile-only src/shared/database/migrate.ts",
+    "seed": "ts-node-dev --transpile-only src/shared/database/seed.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "bullmq": "^5.10.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-async-errors": "^3.1.1",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pino": "^9.3.2",
+    "pino-http": "^10.3.0",
+    "redis": "^4.7.0",
+    "reflect-metadata": "^0.2.2",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "typeorm": "^0.3.20",
+    "zod": "^3.23.8",
+    "pg": "^8.12.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.12",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.14.10",
+    "@types/supertest": "^6.0.2",
+    "@types/cors": "^2.8.17",
+    "@types/bcryptjs": "^2.4.6",
+    "eslint": "^9.7.0",
+    "eslint-config-prettier": "^9.1.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.3.2",
+    "supertest": "^6.3.4",
+    "ts-jest": "^29.2.5",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.5.3"
+  }
+}
