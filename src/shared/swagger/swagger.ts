@@ -6,12 +6,21 @@ export const setupSwagger = (app: Express) => {
   const specs = swaggerJsdoc({
     definition: {
       openapi: '3.0.0',
-      info: { title: 'E-Commerce API', version: '1.0.0' },
+      info: {
+        title: 'E-Commerce API',
+        version: '1.0.0',
+      },
       components: {
-        securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer' } },
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+          },
+        },
       },
     },
-    apis: [],
+
+    apis: ['./src/**/*.ts'],
   });
 
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(specs));

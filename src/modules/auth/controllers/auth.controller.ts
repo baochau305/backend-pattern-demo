@@ -3,6 +3,24 @@ import { authService } from '../services/auth.service.js';
 import { loginSchema, registerSchema } from '../validators/auth.validator.js';
 import { BadRequestError } from '../../../shared/errors/api-error.js';
 
+/**
+ * @swagger
+ * openapi: 3.0.0
+ * info:
+ *   title: Backend Pattern Demo API
+ *   version: 1.0.0
+ * servers:
+ *   - url: /api
+ * tags:
+ *   - name: Auth
+ *     description: Authentication APIs
+ * components:
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ */
 export const authRouter = Router();
 
 /**
