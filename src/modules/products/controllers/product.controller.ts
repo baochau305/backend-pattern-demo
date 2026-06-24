@@ -1,105 +1,50 @@
-import { Router } from 'express';
-import { productService } from '../services/product.service.js';
-import { authGuard } from '../../../shared/middlewares/auth.js';
-import { roleGuard } from '../../../shared/middlewares/roles.js';
+import type { Request, Response } from 'express';
+import type { ProductService } from '../services/product.service.js';
+import { ok, created, paginated } from '../../../shared/http/api-response.js';
+import type {
+  CreateProductDto,
+  UpdateProductDto,
+} from '../dtos/product.dto.js';
+import type { ListProductQuery } from '../validators/product.validator.js';
 
-/**
- * @swagger
- * tags:
- *   - name: Products
- *     description: Product management APIs
- */
-export const productRouter = Router();
+export class ProductController {
+  constructor(private readonly productService: ProductService) {}
 
-/**
- * @swagger
- * /products:
- *   get:
- *     tags:
- *       - Products
- *     summary: List products
- *     parameters:
- *       - in: query
- *         name: q
- *         schema: { type: string }
- *         description: Optional search query
- *     responses:
- *       200:
- *         description: Product list
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean }
- *                 data: { type: array, items: { type: object } }
- */
-productRouter.get('/', async (req, res) => {
-  const data = await productService.list(req.query as Record<string, string>);
-  res.json({ success: true, data });
-});
+  list = async (req: Request, res: Response): Promise<void> => {
+    const q = req.query as unknown as ListProductQuery;
+    const result = await this.productService.list({
+      page: q.page,
+      limit: q.limit,
+      search: q.search,
+      categoryId: q.category,
+      sort: q.sort,
+    });
+    paginated(res, result);
+  };
 
-/**
- * @swagger
- * /products/{id}:
- *   get:
- *     tags:
- *       - Products
- *     summary: Get product by id
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: string }
- *     responses:
- *       200:
- *         description: Product detail
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean }
- *                 data: { type: object }
- *       404:
- *         description: Not found
- */
-productRouter.get('/:id', async (req, res) => {
-  const data = await productService.get(req.params.id);
-  res.json({ success: true, data });
-});
+  getById = async (req: Request, res: Response): Promise<void> => {
+    ok(res, await this.productService.getById(req.params.id));
+  };
 
-/**
- * @swagger
- * /products:
- *   post:
- *     tags:
- *       - Products
- *     summary: Create product (ADMIN only)
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *     responses:
- *       200:
- *         description: Created
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean }
- *                 data: { type: object }
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- */
-productRouter.post('/', authGuard, roleGuard('ADMIN'), async (req, res) => {
-  const data = await productService.create(req.body);
-  res.json({ success: true, data });
-});
+  create = async (req: Request, res: Response): Promise<void> => {
+    created(
+      res,
+      await this.productService.create(req.body as CreateProductDto),
+    );
+  };
+
+  update = async (req: Request, res: Response): Promise<void> => {
+    ok(
+      res,
+      await this.productService.update(
+        req.params.id,
+        req.body as UpdateProductDto,
+      ),
+    );
+  };
+
+  remove = async (req: Request, res: Response): Promise<void> => {
+    await this.productService.remove(req.params.id);
+    ok(res, { message: 'Product deleted' });
+  };
+}
