@@ -1,32 +1,43 @@
-import { Router } from 'express';
+import type { Request, Response } from 'express';
+import type { CategoryService } from '../services/category.service.js';
+import { ok, created, paginated } from '../../../shared/http/api-response.js';
+import type {
+  CreateCategoryDto,
+  UpdateCategoryDto,
+} from '../dtos/category.dto.js';
+import type { PaginationQuery } from '../../../shared/validators/common.validator.js';
 
-/**
- * @swagger
- * tags:
- *   - name: Categories
- *     description: Category management APIs
- */
+export class CategoryController {
+  constructor(private readonly categoryService: CategoryService) {}
 
-export const categoryRouter = Router();
+  list = async (req: Request, res: Response): Promise<void> => {
+    const { page, limit } = req.query as unknown as PaginationQuery;
+    paginated(res, await this.categoryService.list({ page, limit }));
+  };
 
-/**
- * @swagger
- * /categories:
- *   get:
- *     tags:
- *       - Categories
- *     summary: List categories
- *     responses:
- *       200:
- *         description: Category list
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean }
- *                 data: { type: array, items: { type: object } }
- */
-categoryRouter.get('/', (_req, res) => {
-  res.json({ success: true, data: [] });
-});
+  getById = async (req: Request, res: Response): Promise<void> => {
+    ok(res, await this.categoryService.getById(req.params.id));
+  };
+
+  create = async (req: Request, res: Response): Promise<void> => {
+    created(
+      res,
+      await this.categoryService.create(req.body as CreateCategoryDto),
+    );
+  };
+
+  update = async (req: Request, res: Response): Promise<void> => {
+    ok(
+      res,
+      await this.categoryService.update(
+        req.params.id,
+        req.body as UpdateCategoryDto,
+      ),
+    );
+  };
+
+  remove = async (req: Request, res: Response): Promise<void> => {
+    await this.categoryService.remove(req.params.id);
+    ok(res, { message: 'Category deleted' });
+  };
+}
