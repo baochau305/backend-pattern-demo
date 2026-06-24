@@ -1,28 +1,47 @@
 import 'reflect-metadata';
-import 'dotenv/config';
+import type { Server } from 'node:http';
+import { env } from './shared/config/env.js';
+import { logger } from './shared/logger/pino.js';
+import { dataSource } from './shared/database/data-source.js';
+import { connectRedis, disconnectRedis } from './shared/redis/redis.js';
+import { closeQueues } from './shared/queue/queues.js';
+import { createApp } from './shared/app.js';
 
-if (!process.env.REDIS_HOST || process.env.REDIS_HOST === 'redis') {
-  process.env.REDIS_HOST = '127.0.0.1';
-}
-if (!process.env.REDIS_URL || process.env.REDIS_URL.includes('redis://redis')) {
-  process.env.REDIS_URL = 'redis://127.0.0.1:6379';
-}
-if (!process.env.DB_HOST || process.env.DB_HOST === 'postgres') {
-  process.env.DB_HOST = '127.0.0.1';
-}
-if (
-  !process.env.DATABASE_URL ||
-  process.env.DATABASE_URL.includes('postgres://postgres')
-) {
-  process.env.DATABASE_URL =
-    'postgres://postgres:postgres@127.0.0.1:5432/postgres';
-}
+/**
+ * Application entrypoint.
+ *
+ * Bootstrap order is explicit: connect infrastructure (DB + Redis) first, build
+ * the app, then start listening. Hostnames come entirely from env (DATABASE_URL /
+ * REDIS_URL) — no per-environment overrides in code — so the same binary runs
+ * locally (localhost) and in Docker (service names) just by changing env vars.
+ */
+const bootstrap = async (): Promise<void> => {
+  await dataSource.initialize();
+  logger.info('Database connected');
+  const redis = await connectRedis();
 
-const { createApp } = await import('./shared/app.js');
+  const app = createApp({ dataSource, redis });
+  const server: Server = app.listen(env.PORT, () => {
+    logger.info(`API listening on port ${env.PORT} (${env.NODE_ENV})`);
+  });
 
-const app = await createApp();
-const port = Number(process.env.PORT ?? 3000);
+  // Graceful shutdown: stop accepting connections, then release resources.
+  const shutdown = async (signal: string): Promise<void> => {
+    logger.info({ signal }, 'Shutting down');
+    server.close();
+    await Promise.allSettled([
+      dataSource.destroy(),
+      disconnectRedis(),
+      closeQueues(),
+    ]);
+    process.exit(0);
+  };
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+  process.on('SIGINT', () => void shutdown('SIGINT'));
+};
+
+bootstrap().catch((err) => {
+  logger.error({ err }, 'Fatal error during bootstrap');
+  process.exit(1);
 });
