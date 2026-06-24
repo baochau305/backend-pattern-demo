@@ -1,59 +1,55 @@
-import { Router } from 'express';
-import {
-  authGuard,
-  type AuthenticatedRequest,
-} from '../../../shared/middlewares/auth.js';
-import { orderService } from '../services/order.service.js';
+import type { Request, Response } from 'express';
+import type { OrderService } from '../services/order.service.js';
+import { ok, created, paginated } from '../../../shared/http/api-response.js';
+import { Role } from '../../../shared/constants/roles.js';
+import { UnauthorizedError } from '../../../shared/errors/api-error.js';
+import type { CreateOrderDto } from '../dtos/order.dto.js';
+import type { ListOrderQuery } from '../validators/order.validator.js';
 
 /**
- * @swagger
- * tags:
- *   - name: Orders
- *     description: Order management APIs
+ * Order endpoints enforce ownership-based authorization: a USER only ever sees
+ * their own orders, while an ADMIN sees everything. The branching lives here (the
+ * HTTP/identity boundary); the service exposes distinct, intention-revealing
+ * methods rather than a flag.
  */
+export class OrderController {
+  constructor(private readonly orderService: OrderService) {}
 
-export const orderRouter = Router();
+  private userId(req: Request): string {
+    if (!req.user) throw new UnauthorizedError();
+    return req.user.id;
+  }
 
-/**
- * @swagger
- * /orders:
- *   post:
- *     tags:
- *       - Orders
- *     summary: Create order
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: header
- *         name: Idempotency-Key
- *         schema: { type: string }
- *         required: false
- *         description: Prevent duplicate order creation
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               items:
- *                 type: array
- *                 items: { type: object }
- *     responses:
- *       200:
- *         description: Order created
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean }
- *                 data: { type: object }
- *       401:
- *         description: Unauthorized
- */
-orderRouter.post('/', authGuard, async (req: AuthenticatedRequest, res) => {
-  const idemKey = req.header('Idempotency-Key') || undefined;
-  const data = await orderService.create(req.user!.id, req.body.items, idemKey);
-  res.json({ success: true, data });
-});
+  create = async (req: Request, res: Response): Promise<void> => {
+    const idempotencyKey = req.header('Idempotency-Key') ?? undefined;
+    const order = await this.orderService.create(
+      this.userId(req),
+      req.body as CreateOrderDto,
+      idempotencyKey,
+    );
+    created(res, order);
+  };
+
+  list = async (req: Request, res: Response): Promise<void> => {
+    const { page, limit } = req.query as unknown as ListOrderQuery;
+    const result =
+      req.user?.role === Role.ADMIN
+        ? await this.orderService.listAll({ page, limit })
+        : await this.orderService.listForUser(this.userId(req), {
+            page,
+            limit,
+          });
+    paginated(res, result);
+  };
+
+  getById = async (req: Request, res: Response): Promise<void> => {
+    const order =
+      req.user?.role === Role.ADMIN
+        ? await this.orderService.getByIdAsAdmin(req.params.id)
+        : await this.orderService.getByIdForUser(
+            req.params.id,
+            this.userId(req),
+          );
+    ok(res, order);
+  };
+}
