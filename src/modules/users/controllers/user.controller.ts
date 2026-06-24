@@ -1,32 +1,38 @@
-import { Router } from 'express';
+import type { Request, Response } from 'express';
+import type { UserService } from '../services/user.service.js';
+import { ok, created, paginated } from '../../../shared/http/api-response.js';
+import type { CreateUserDto, UpdateUserDto } from '../dtos/user.dto.js';
+import type { PaginationQuery } from '../../../shared/validators/common.validator.js';
 
-/**
- * @swagger
- * tags:
- *   - name: Users
- *     description: User management APIs
- */
+export class UserController {
+  constructor(private readonly userService: UserService) {}
 
-export const userRouter = Router();
+  list = async (req: Request, res: Response): Promise<void> => {
+    const { page, limit } = req.query as unknown as PaginationQuery;
+    const result = await this.userService.list({ page, limit });
+    paginated(res, result);
+  };
 
-/**
- * @swagger
- * /users:
- *   get:
- *     tags:
- *       - Users
- *     summary: List users
- *     responses:
- *       200:
- *         description: User list
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean }
- *                 data: { type: array, items: { type: object } }
- */
-userRouter.get('/', (_req, res) => {
-  res.json({ success: true, data: [] });
-});
+  getById = async (req: Request, res: Response): Promise<void> => {
+    const user = await this.userService.getById(req.params.id);
+    ok(res, user);
+  };
+
+  create = async (req: Request, res: Response): Promise<void> => {
+    const user = await this.userService.create(req.body as CreateUserDto);
+    created(res, user);
+  };
+
+  update = async (req: Request, res: Response): Promise<void> => {
+    const user = await this.userService.update(
+      req.params.id,
+      req.body as UpdateUserDto,
+    );
+    ok(res, user);
+  };
+
+  remove = async (req: Request, res: Response): Promise<void> => {
+    await this.userService.remove(req.params.id);
+    ok(res, { message: 'User deleted' });
+  };
+}
