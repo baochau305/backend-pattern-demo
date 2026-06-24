@@ -1,185 +1,35 @@
-import { Router } from 'express';
-import { authService } from '../services/auth.service.js';
-import { loginSchema, registerSchema } from '../validators/auth.validator.js';
-import { BadRequestError } from '../../../shared/errors/api-error.js';
+import type { Request, Response } from 'express';
+import type { AuthService } from '../services/auth.service.js';
+import { ok, created } from '../../../shared/http/api-response.js';
+import type { LoginDto, RegisterDto } from '../dtos/auth.dto.js';
 
 /**
- * @swagger
- * openapi: 3.0.0
- * info:
- *   title: Backend Pattern Demo API
- *   version: 1.0.0
- * servers:
- *   - url: /api
- * tags:
- *   - name: Auth
- *     description: Authentication APIs
- * components:
- *   securitySchemes:
- *     bearerAuth:
- *       type: http
- *       scheme: bearer
- *       bearerFormat: JWT
+ * Controllers are deliberately thin: they translate between HTTP and the service
+ * layer and nothing more. Validation already happened in middleware, business
+ * rules live in the service, so each handler just calls the service and shapes the
+ * response. Handlers are arrow properties so they keep their `this` binding when
+ * passed directly as Express route handlers.
  */
-export const authRouter = Router();
+export class AuthController {
+  constructor(private readonly authService: AuthService) {}
 
-/**
- * @swagger
- * /auth/register:
- *   post:
- *     tags:
- *       - Auth
- *     summary: Register a new user
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [email, password]
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *               password:
- *                 type: string
- *                 format: password
- *     responses:
- *       200:
- *         description: Registered successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean }
- *                 data: { type: object }
- *       400:
- *         description: Validation failed
- *       500:
- *         description: Server error
- */
-authRouter.post('/register', async (req, res) => {
-  const result = registerSchema.safeParse(req.body);
-  if (!result.success) throw new BadRequestError('Validation failed');
-  const data = await authService.register(
-    result.data.email,
-    result.data.password,
-  );
-  res.json({ success: true, data });
-});
+  register = async (req: Request, res: Response): Promise<void> => {
+    const user = await this.authService.register(req.body as RegisterDto);
+    created(res, user);
+  };
 
-/**
- * @swagger
- * /auth/login:
- *   post:
- *     tags:
- *       - Auth
- *     summary: Login with email and password
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [email, password]
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *               password:
- *                 type: string
- *                 format: password
- *     responses:
- *       200:
- *         description: Logged in successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean }
- *                 data: { type: object }
- *       400:
- *         description: Validation failed
- */
-authRouter.post('/login', async (req, res) => {
-  const result = loginSchema.safeParse(req.body);
-  if (!result.success) throw new BadRequestError('Validation failed');
-  const data = await authService.login(result.data.email, result.data.password);
-  res.json({ success: true, data });
-});
+  login = async (req: Request, res: Response): Promise<void> => {
+    const result = await this.authService.login(req.body as LoginDto);
+    ok(res, result);
+  };
 
-/**
- * @swagger
- * /auth/refresh:
- *   post:
- *     tags:
- *       - Auth
- *     summary: Refresh access token
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [refreshToken]
- *             properties:
- *               refreshToken:
- *                 type: string
- *     responses:
- *       200:
- *         description: Token refreshed
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean }
- *                 data: { type: object }
- *       400:
- *         description: Missing refresh token
- */
-authRouter.post('/refresh', async (req, res) => {
-  const token = req.body?.refreshToken as string;
-  if (!token) throw new BadRequestError('Missing refresh token');
-  const data = await authService.refresh(token);
-  res.json({ success: true, data });
-});
+  refresh = async (req: Request, res: Response): Promise<void> => {
+    const tokens = await this.authService.refresh(req.body.refreshToken);
+    ok(res, tokens);
+  };
 
-/**
- * @swagger
- * /auth/logout:
- *   post:
- *     tags:
- *       - Auth
- *     summary: Logout and invalidate refresh token
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [refreshToken]
- *             properties:
- *               refreshToken:
- *                 type: string
- *     responses:
- *       200:
- *         description: Logged out
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean }
- *                 data: { type: object }
- *       400:
- *         description: Missing refresh token
- */
-authRouter.post('/logout', async (req, res) => {
-  const token = req.body?.refreshToken as string;
-  if (!token) throw new BadRequestError('Missing refresh token');
-  await authService.logout(token);
-  res.json({ success: true, data: {} });
-});
+  logout = async (req: Request, res: Response): Promise<void> => {
+    await this.authService.logout(req.body.refreshToken);
+    ok(res, { message: 'Logged out' });
+  };
+}
