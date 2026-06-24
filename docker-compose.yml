@@ -1,33 +1,74 @@
 services:
-  api:
-    build:
-      context: .
-      dockerfile: ./.docker/api/Dockerfile
-    ports:
-      - '3000:3000'
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/app
-      - JWT_SECRET=change_me
-      - JWT_EXPIRES_IN=15m
-      - REFRESH_TOKEN_EXPIRES_IN=7d
-      - REDIS_URL=redis://redis:6379
-      - RATE_LIMIT_MAX=100
-      - RATE_LIMIT_WINDOW_SEC=60
-    depends_on:
-      - postgres
-      - redis
-    command: node dist/src/main.js
   postgres:
-    image: postgres:16
+    image: postgres:16-alpine
     environment:
       POSTGRES_DB: app
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
       - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d app']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   redis:
-    image: redis:7
+    image: redis:7-alpine
     ports:
       - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: ./.docker/api/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Service names resolve via the compose network — no code changes needed.
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/app
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: change_me_in_production
+      JWT_EXPIRES_IN: 15m
+      REFRESH_TOKEN_EXPIRES_IN: 7d
+      RATE_LIMIT_MAX: 100
+      RATE_LIMIT_WINDOW_SEC: 60
+    ports:
+      - '3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Apply migrations and seed demo data, then start the API — turnkey `up`.
+    command: >
+      sh -c "node dist/shared/database/migrate.js &&
+             node dist/shared/database/seed.js &&
+             node dist/main.js"
+
+  worker:
+    build:
+      context: .
+      dockerfile: ./.docker/api/Dockerfile
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/app
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: change_me_in_production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Separate process for background jobs (email, analytics).
+    command: ['node', 'dist/worker.js']
+
+volumes:
+  pgdata:
