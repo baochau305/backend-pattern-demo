@@ -56,6 +56,7 @@ handling**.
   responseTime.
 - **Global error handling** — custom error classes + standard response envelope.
 - **OpenAPI/Swagger** — interactive docs at `/docs`.
+- **Queue dashboard** — Bull Board at `/admin/queues`, behind HTTP Basic auth.
 - **Docker** — one-command `docker compose up`.
 - **Unit tests** — Jest with mocked dependencies.
 
@@ -267,20 +268,20 @@ All configuration is validated at startup in
 [`src/shared/config/env.ts`](src/shared/config/env.ts); the process refuses to
 boot on invalid config. See [`.env.example`](.env.example).
 
-| Variable                   | Default                  | Description                          |
-| -------------------------- | ------------------------ | ------------------------------------ |
-| `NODE_ENV`                 | `development`            | `development` / `test` / `production`|
-| `PORT`                     | `3000`                   | HTTP port                            |
-| `DATABASE_URL`             | `postgres://…/app`       | PostgreSQL connection string         |
-| `REDIS_URL`                | `redis://localhost:6379` | Redis connection string              |
-| `JWT_SECRET`               | `change_me`              | Secret for signing JWTs              |
-| `JWT_EXPIRES_IN`           | `15m`                    | Access-token lifetime                |
-| `REFRESH_TOKEN_EXPIRES_IN` | `7d`                     | Refresh-token lifetime               |
-| `RATE_LIMIT_MAX`           | `100`                    | Requests per window per IP           |
-| `RATE_LIMIT_WINDOW_SEC`    | `60`                     | Rate-limit window (seconds)          |
-| `CACHE_TTL_LIST_SEC`       | `60`                     | Product list cache TTL               |
-| `CACHE_TTL_DETAIL_SEC`     | `120`                    | Product detail cache TTL             |
-| `IDEMPOTENCY_TTL_SEC`      | `86400`                  | Idempotency key retention            |
+| Variable                   | Default                  | Description                           |
+| -------------------------- | ------------------------ | ------------------------------------- |
+| `NODE_ENV`                 | `development`            | `development` / `test` / `production` |
+| `PORT`                     | `3000`                   | HTTP port                             |
+| `DATABASE_URL`             | `postgres://…/app`       | PostgreSQL connection string          |
+| `REDIS_URL`                | `redis://localhost:6379` | Redis connection string               |
+| `JWT_SECRET`               | `change_me`              | Secret for signing JWTs               |
+| `JWT_EXPIRES_IN`           | `15m`                    | Access-token lifetime                 |
+| `REFRESH_TOKEN_EXPIRES_IN` | `7d`                     | Refresh-token lifetime                |
+| `RATE_LIMIT_MAX`           | `100`                    | Requests per window per IP            |
+| `RATE_LIMIT_WINDOW_SEC`    | `60`                     | Rate-limit window (seconds)           |
+| `CACHE_TTL_LIST_SEC`       | `60`                     | Product list cache TTL                |
+| `CACHE_TTL_DETAIL_SEC`     | `120`                    | Product detail cache TTL              |
+| `IDEMPOTENCY_TTL_SEC`      | `86400`                  | Idempotency key retention             |
 
 > Hostnames come **only** from `DATABASE_URL` / `REDIS_URL`. The same build runs
 > locally (`localhost`) and in Docker (service names `postgres` / `redis`) with no
@@ -292,29 +293,30 @@ boot on invalid config. See [`.env.example`](.env.example).
 
 Interactive Swagger UI: **`GET /docs`** · raw spec: **`GET /docs.json`**.
 
-| Method | Endpoint           | Auth        | Description                          |
-| ------ | ------------------ | ----------- | ------------------------------------ |
-| POST   | `/auth/register`   | –           | Register                             |
-| POST   | `/auth/login`      | –           | Login → access + refresh tokens      |
-| POST   | `/auth/refresh`    | –           | Rotate refresh token                 |
-| POST   | `/auth/logout`     | –           | Revoke refresh token                 |
-| GET    | `/products`        | –           | List (page, limit, search, category, sort) |
-| GET    | `/products/:id`    | –           | Detail (cached)                      |
-| POST   | `/products`        | ADMIN       | Create                               |
-| PATCH  | `/products/:id`    | ADMIN       | Update                               |
-| DELETE | `/products/:id`    | ADMIN       | Soft delete                          |
-| GET    | `/categories`      | –           | List                                 |
-| POST   | `/categories`      | ADMIN       | Create                               |
-| PATCH  | `/categories/:id`  | ADMIN       | Update                               |
-| DELETE | `/categories/:id`  | ADMIN       | Soft delete                          |
-| POST   | `/orders`          | USER/ADMIN  | Create order (Idempotency-Key)       |
-| GET    | `/orders`          | USER/ADMIN  | List (own for USER, all for ADMIN)   |
-| GET    | `/orders/:id`      | USER/ADMIN  | Get one (ownership enforced)         |
-| GET    | `/users`           | ADMIN       | List users                           |
-| POST   | `/users`           | ADMIN       | Create user                          |
-| PATCH  | `/users/:id`       | ADMIN       | Update user                          |
-| DELETE | `/users/:id`       | ADMIN       | Soft delete user                     |
-| GET    | `/health`          | –           | Liveness probe                       |
+| Method | Endpoint          | Auth       | Description                                |
+| ------ | ----------------- | ---------- | ------------------------------------------ |
+| POST   | `/auth/register`  | –          | Register                                   |
+| POST   | `/auth/login`     | –          | Login → access + refresh tokens            |
+| POST   | `/auth/refresh`   | –          | Rotate refresh token                       |
+| POST   | `/auth/logout`    | –          | Revoke refresh token                       |
+| GET    | `/products`       | –          | List (page, limit, search, category, sort) |
+| GET    | `/products/:id`   | –          | Detail (cached)                            |
+| POST   | `/products`       | ADMIN      | Create                                     |
+| PATCH  | `/products/:id`   | ADMIN      | Update                                     |
+| DELETE | `/products/:id`   | ADMIN      | Soft delete                                |
+| GET    | `/categories`     | –          | List                                       |
+| POST   | `/categories`     | ADMIN      | Create                                     |
+| PATCH  | `/categories/:id` | ADMIN      | Update                                     |
+| DELETE | `/categories/:id` | ADMIN      | Soft delete                                |
+| POST   | `/orders`         | USER/ADMIN | Create order (Idempotency-Key)             |
+| GET    | `/orders`         | USER/ADMIN | List (own for USER, all for ADMIN)         |
+| GET    | `/orders/:id`     | USER/ADMIN | Get one (ownership enforced)               |
+| GET    | `/users`          | ADMIN      | List users                                 |
+| POST   | `/users`          | ADMIN      | Create user                                |
+| PATCH  | `/users/:id`      | ADMIN      | Update user                                |
+| DELETE | `/users/:id`      | ADMIN      | Soft delete user                           |
+| GET    | `/health`         | –          | Liveness probe                             |
+| GET    | `/admin/queues`   | Basic auth | Bull Board queue dashboard                 |
 
 Example product listing:
 `GET /products?page=1&limit=10&category=<uuid>&search=phone&sort=price_desc`
@@ -404,6 +406,27 @@ and the two tiers scale independently.
 - Order side-effects are enqueued **after** the transaction commits, and a queue
   failure is logged rather than failing an already-placed order.
 
+### Monitoring — Bull Board
+
+[Bull Board](https://github.com/felixmosh/bull-board) is mounted at
+**`/admin/queues`** ([`src/shared/queue/bull-board.ts`](src/shared/queue/bull-board.ts))
+to inspect waiting/active/completed/failed jobs, read payloads and error stacks,
+and retry or remove jobs.
+
+The dashboard can mutate queues, so it is **not** part of the public API: it sits
+behind HTTP Basic auth with credentials read from the environment.
+
+| Variable              | Default         | Purpose                               |
+| --------------------- | --------------- | ------------------------------------- |
+| `BULL_BOARD_ENABLED`  | `true`          | Set to `false` to not mount it at all |
+| `BULL_BOARD_PATH`     | `/admin/queues` | Mount path                            |
+| `BULL_BOARD_USERNAME` | `admin`         | Basic-auth user                       |
+| `BULL_BOARD_PASSWORD` | `admin`         | Basic-auth password — **change it**   |
+
+```bash
+open http://localhost:3000/admin/queues   # browser prompts for the credentials
+```
+
 ---
 
 ## Idempotency
@@ -443,7 +466,7 @@ TypeORM `QueryFailedError`) to the right status. Internal details/stack traces a
 **Success**
 
 ```json
-{ "success": true, "data": { } }
+{ "success": true, "data": {} }
 ```
 
 Paginated responses add `"meta": { "page", "limit", "total", "totalPages" }`.
@@ -451,7 +474,11 @@ Paginated responses add `"meta": { "page", "limit", "total", "totalPages" }`.
 **Error**
 
 ```json
-{ "success": false, "message": "Product not found", "code": "PRODUCT_NOT_FOUND" }
+{
+  "success": false,
+  "message": "Product not found",
+  "code": "PRODUCT_NOT_FOUND"
+}
 ```
 
 Validation errors add a `details` array of `{ field, message }`.
@@ -489,17 +516,20 @@ database or Redis and run in well under a second.
 
 ## NPM Scripts
 
-| Script                  | Description                                  |
-| ----------------------- | -------------------------------------------- |
-| `yarn dev`              | Run API in watch mode (tsx)                  |
-| `yarn dev:worker`       | Run the queue worker in watch mode           |
-| `yarn build`            | Compile TypeScript → `dist/`                 |
-| `yarn start`            | Run compiled API (`dist/main.js`)            |
-| `yarn start:worker`     | Run compiled worker                          |
-| `yarn typecheck`        | `tsc --noEmit`                               |
-| `yarn lint` / `:fix`    | ESLint                                       |
-| `yarn format` / `:check`| Prettier                                     |
-| `yarn test` / `:watch`  | Jest                                         |
-| `yarn migration:run`    | Run migrations (dev, tsx)                     |
-| `yarn seed`             | Seed demo data (dev, tsx)                     |
+| Script                   | Description                        |
+| ------------------------ | ---------------------------------- |
+| `yarn dev`               | Run API in watch mode (tsx)        |
+| `yarn dev:worker`        | Run the queue worker in watch mode |
+| `yarn build`             | Compile TypeScript → `dist/`       |
+| `yarn start`             | Run compiled API (`dist/main.js`)  |
+| `yarn start:worker`      | Run compiled worker                |
+| `yarn typecheck`         | `tsc --noEmit`                     |
+| `yarn lint` / `:fix`     | ESLint                             |
+| `yarn format` / `:check` | Prettier                           |
+| `yarn test` / `:watch`   | Jest                               |
+| `yarn migration:run`     | Run migrations (dev, tsx)          |
+| `yarn seed`              | Seed demo data (dev, tsx)          |
+
+```
+
 ```

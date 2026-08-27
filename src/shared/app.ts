@@ -9,6 +9,7 @@ import { errorHandler } from './errors/error-handler.js';
 import { notFoundHandler } from './middlewares/not-found.middleware.js';
 import { rateLimit } from './middlewares/rate-limit.middleware.js';
 import { setupSwagger } from './swagger/swagger.js';
+import { setupBullBoard } from './queue/bull-board.js';
 import { buildContainer } from '../container.js';
 
 interface AppDeps {
@@ -38,6 +39,8 @@ export const createApp = ({ dataSource, redis }: AppDeps): Express => {
   app.use(rateLimit(redis));
 
   setupSwagger(app);
+  // Queue dashboard — Basic-auth protected, credentials from env.
+  setupBullBoard(app);
 
   // Liveness/readiness probe (used by Docker healthchecks and orchestrators).
   app.get('/health', (_req, res) => {

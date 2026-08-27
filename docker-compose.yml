@@ -40,6 +40,10 @@ services:
       REFRESH_TOKEN_EXPIRES_IN: 7d
       RATE_LIMIT_MAX: 100
       RATE_LIMIT_WINDOW_SEC: 60
+      BULL_BOARD_ENABLED: 'true'
+      BULL_BOARD_PATH: /admin/queues
+      BULL_BOARD_USERNAME: admin
+      BULL_BOARD_PASSWORD: change_me_in_production
     ports:
       - '3000:3000'
     depends_on:

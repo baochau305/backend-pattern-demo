@@ -34,6 +34,18 @@ const envSchema = z.object({
   CACHE_TTL_DETAIL_SEC: z.coerce.number().int().positive().default(120),
 
   IDEMPOTENCY_TTL_SEC: z.coerce.number().int().positive().default(86400),
+
+  // ---- Bull Board (queue dashboard, HTTP Basic auth) ----
+  BULL_BOARD_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  BULL_BOARD_PATH: z
+    .string()
+    .startsWith('/', 'BULL_BOARD_PATH must start with "/"')
+    .default('/admin/queues'),
+  BULL_BOARD_USERNAME: z.string().min(1).default('admin'),
+  BULL_BOARD_PASSWORD: z.string().min(1).default('admin'),
 });
 
 export type Env = z.infer<typeof envSchema>;
